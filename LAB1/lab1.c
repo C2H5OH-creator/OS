@@ -3,27 +3,38 @@
 #include <unistd.h>
 
 void* pthread_1(void* arg) {
-    printf("Поток 1 начал работу\n");
+    // Разрешаем отмену работы потока
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    // Устанавливаем отложенный режим
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    
+    printf("Поток 1 начал работу отложенным режимом отмены\n");
     int* flag1 = (int*) arg;
     while(*flag1) {
-        printf("%d\n",*flag1);
+        printf("%d",*flag1);
+        fflush(stdout);
         sleep(1);
     }
 
-    printf("Поток 1 закончил работу\n");
+    printf("Поток 1 закончил работу отложено\n");
     pthread_exit((void*)1);
 }
 
 void* pthread_2(void* arg) {
-    printf("Поток 2 начал работу\n");
+    // Разрешаем отмену работы потока
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    // Устанавливаем асинхронный режим
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL); 
 
+    printf("Поток 2 начал работу с асинхронным режимом отмены\n");
     int* flag2 = (int*) arg;
     while(*flag2) {
-        printf("%d\n", *flag2);
+        printf("%d", *flag2);
+        fflush(stdout);
         sleep(1);
     }
 
-    printf("Поток 2 закончил работу\n");
+    printf("Поток 2 закончил работу асинхронно\n");
     pthread_exit((void*)2);
 
 }
