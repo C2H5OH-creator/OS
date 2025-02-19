@@ -5,7 +5,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-
+#include <fcntl.h>
 
 int flag1 = 1, flag2 = 2;
 int pipe_fd[2];
@@ -54,6 +54,7 @@ void* pthread_2(void* arg) {
             printf("Получено сообщение: %s\n", buffer);
         } else if (bytes_read == -1) {
             perror("Ошибка чтения из канала");
+	    sleep(1);
         }
     }
 
@@ -62,13 +63,32 @@ void* pthread_2(void* arg) {
 
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     pthread_t thread_id_1, thread_id_2;
     void *exitcode1, *exitcode2;
 
-    if (pipe(pipe_fd) == -1) {
-        perror("Ошибка создания канала");
-        exit(EXIT_FAILURE);
+    int mode = atoi(argv[1]);
+
+    if (mode == 1) {
+        if (pipe(pipe_fd) == -1) {
+            perror("Ошибка создания канала");
+            exit(EXIT_FAILURE);
+        }
+    } else if (mode == 2) {
+        if (pipe2(pipe_fd, O_NONBLOCK) == -1) {
+            perror("Ошибка создания канала с pipe2");
+            exit(EXIT_FAILURE);
+        }
+    } else if (mode == 3) {
+        if (pipe(pipe_fd) == -1) {
+            perror("Ошибка создания канала");
+            exit(EXIT_FAILURE);
+        }
+        fcntl(pipe_fd[0], F_SETFL, O_NONBLOCK);
+        fcntl(pipe_fd[1], F_SETFL, O_NONBLOCK);
+    } else {
+        printf("Неверный режим\n");
+        return EXIT_FAILURE;
     }
 
     printf("Основная программа начала работу\n");
@@ -81,10 +101,10 @@ int main() {
     flag1 = 0;
     flag2 = 0;
 
-    close(pipe_fd[1]);
     pthread_join(thread_id_1, &exitcode1);
     pthread_join(thread_id_2, &exitcode2);
 
+    close(pipe_fd[1]);
     close(pipe_fd[0]);
 
 
