@@ -1,1 +1,2 @@
-gcc lab4.c -o lab4
+gcc parent.c -o parent
+gcc child.c -o child
