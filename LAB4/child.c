@@ -8,13 +8,7 @@ int main(int argc, char * argv[], char *envp[]){
     	sleep(1);
     }
 
-   //if (envp) {
-    //	printf("Переменные окружения:\n");
-    //	for (int i = 0; envp[i] != NULL; i++) {
-	//		printf("%d - %s\n", i, envp[i]);
-	//	}
-    //}
-    for (int i = 0; i < 10; i++) {
+   for (int i = 0; i < 10; i++) {
         printf("Дочерный процесс: PID = %d, PPID = %d\n", getpid(), getppid());
         sleep(1);
     }
