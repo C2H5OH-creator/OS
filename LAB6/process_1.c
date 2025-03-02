@@ -42,7 +42,6 @@ void* thread_1(void* arg) {
 }
 
 int main() {
-    // Константы для удобства
     const char* SHM_NAME = "/shared_memory";
     const char* SEM_WRITE_NAME = "/sem_write";
     const char* SEM_READ_NAME = "/sem_read";
@@ -50,12 +49,29 @@ int main() {
 
     pthread_t thread_id_1;
 
+    shm_unlink(SHM_NAME);
+    sem_unlink(SEM_WRITE_NAME);
+    sem_unlink(SEM_READ_NAME);
+
     shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
     ftruncate(shm_fd, SHM_SIZE);
     shm_ptr = mmap(0, SHM_SIZE, PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     sem_write = sem_open(SEM_WRITE_NAME, O_CREAT, 0666, 0);
+    if (sem_write == SEM_FAILED) {
+        perror("sem_open (sem_write)");
+        exit(EXIT_FAILURE);
+    }
+
     sem_read = sem_open(SEM_READ_NAME, O_CREAT, 0666, 0);
+    if (sem_read == SEM_FAILED) {
+        perror("sem_open (sem_read)");
+        exit(EXIT_FAILURE);
+    }
 
     pthread_create(&thread_id_1, NULL, thread_1, NULL);
 
@@ -73,6 +89,8 @@ int main() {
 
     munmap(shm_ptr, SHM_SIZE);
     shm_unlink(SHM_NAME);
+
+    sleep(1);
 
     return 0;
 }

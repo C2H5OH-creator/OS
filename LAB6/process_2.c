@@ -31,18 +31,45 @@ void* thread_2(void* arg) {
 }
 
 int main() {
-    // Константы для удобства
-    const char* SHM_NAME =  "/shared_memory";
+    const char* SHM_NAME = "/shared_memory";
     const char* SEM_WRITE_NAME = "/sem_write";
     const char* SEM_READ_NAME = "/sem_read";
 
     pthread_t thread_id_2;
 
-    shm_fd = shm_open(SHM_NAME, O_RDONLY, 0666);
-    shm_ptr = mmap(0, SHM_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
+    shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
+    if (shm_fd == -1) {
+        shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+        if (shm_fd == -1) {
+            perror("shm_open");
+            exit(EXIT_FAILURE);
+        }
+        ftruncate(shm_fd, SHM_SIZE);
+     }
 
     sem_write = sem_open(SEM_WRITE_NAME, 0);
+    if (sem_write == SEM_FAILED) {
+        sem_write = sem_open(SEM_WRITE_NAME, O_CREAT, 0666, 0);
+        if (sem_write == SEM_FAILED) {
+            perror("sem_open (sem_write)");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     sem_read = sem_open(SEM_READ_NAME, 0);
+    if (sem_read == SEM_FAILED) {
+        sem_read = sem_open(SEM_READ_NAME, O_CREAT, 0666, 0);
+        if (sem_read == SEM_FAILED) {
+            perror("sem_open (sem_read)");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    shm_ptr = mmap(0, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_ptr == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
 
     pthread_create(&thread_id_2, NULL, thread_2, NULL);
 
@@ -54,12 +81,10 @@ int main() {
     pthread_join(thread_id_2, NULL);
 
     sem_close(sem_read);
-    sem_unlink(SEM_READ_NAME);
     sem_close(sem_write);
-    sem_unlink(SEM_WRITE_NAME);
 
     munmap(shm_ptr, SHM_SIZE);
-    shm_unlink(SHM_NAME);
+    close(shm_fd);
 
     return 0;
 }
