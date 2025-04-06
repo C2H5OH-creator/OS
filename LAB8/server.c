@@ -10,10 +10,11 @@
 #include <sys/queue.h>
 #include <signal.h>
 #include <sys/utsname.h>
+#include <netdb.h>
 
 struct request {
     int number;
-    char ip[16];  // Для хранения IP-адреса
+    char ip[16];
     STAILQ_ENTRY(request) entries;
 };
 
@@ -49,7 +50,7 @@ void* receive_requests(void* arg) {
             pthread_mutex_lock(&queue_mutex);
             STAILQ_INSERT_TAIL(&request_queue, req, entries);
             pthread_mutex_unlock(&queue_mutex);
-            printf("Получен запрос %d с IP: %s\n", num, ip);
+            printf("Получен запрос №%d\n", num);
         } else if (bytes == 0) {
             printf("Клиент отключился\n");
             break;
@@ -71,12 +72,27 @@ void* process_requests(void* arg) {
             pthread_mutex_unlock(&queue_mutex);
 
             char response[1024];
-            snprintf(response, sizeof(response), 
-                    "Ответ #%d: IP адрес Google: %s", 
-                    req->number, req->ip);
+            struct hostent *result = gethostbyname("www.google.ru");
+            
+            if (result == NULL) {
+                snprintf(response, sizeof(response), 
+                        "Ответ №%d: Ошибка получения IP адреса Google", 
+                        req->number);
+                herror("gethostbyname");
+            } else {
+                char *ip = inet_ntoa(*((struct in_addr *)result->h_addr_list[0]));
+                snprintf(response, sizeof(response), 
+                        "Ответ №%d: IP адрес Google: %s", 
+                        req->number, ip);
+            }
 
-            send(client_socket, response, strlen(response), 0);
-            printf("Отправлен ответ %d\n", req->number);
+            ssize_t bytes_sent = send(client_socket, response, strlen(response), 0);
+            if (bytes_sent == -1) {
+                perror("send");
+            } else {
+                printf("Отправлен ответ №%d\n", req->number);
+            }
+
             free(req);
         } else {
             pthread_mutex_unlock(&queue_mutex);

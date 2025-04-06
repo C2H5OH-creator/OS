@@ -14,28 +14,39 @@ int client_socket;
 volatile int send_flag = 0;
 volatile int receive_flag = 0;
 
+void* connect_to_server(void* arg) {
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(7000),
+        .sin_addr.s_addr = inet_addr("127.0.0.1")
+    };
+
+    while (!send_flag) {
+        if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) != -1) {
+            printf("Подключено к серверу\n");
+            return NULL;
+        }
+        perror("connect");
+        sleep(1);
+    }
+    return NULL;
+}
+
 void* send_requests(void* arg) {
     int count = 1;
     char buffer[1024];
-    struct hostent ret;
-    struct hostent *result;
-    int h_errnop;
-    char *temp_buffer = malloc(8192); // Буфер для gethostbyname_r
-
+    
     while (!send_flag) {
-        if (gethostbyname_r("www.google.ru", &ret, temp_buffer, 8192, &result, &h_errnop) != 0) {
-            perror("gethostbyname_r");
+        snprintf(buffer, sizeof(buffer), "%d", count);
+        ssize_t bytes_sent = send(client_socket, buffer, strlen(buffer), 0);
+        if (bytes_sent == -1) {
+            perror("send");
+            sleep(1);
             continue;
         }
-
-        char *ip = inet_ntoa(*((struct in_addr *)ret.h_addr_list[0]));
-        snprintf(buffer, sizeof(buffer), "%d:%s", count, ip);
-        send(client_socket, buffer, strlen(buffer), 0);
-        printf("Отправлен запрос №%d с IP Google: %s\n", count++, ip);
+        printf("Отправлен запрос №%d\n", count++);
         sleep(1);
     }
-    
-    free(temp_buffer);
     return NULL;
 }
 
@@ -49,6 +60,8 @@ void* receive_responses(void* arg) {
         } else if (bytes == 0) {
             printf("Сервер отключился\n");
             break;
+        } else {
+            perror("recv");
         }
         sleep(1);
     }
@@ -58,23 +71,16 @@ void* receive_responses(void* arg) {
 int main() {
     signal(SIGPIPE, SIG_IGN);
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    
     struct sockaddr_in server_addr = {
         .sin_family = AF_INET,
         .sin_port = htons(7000),
         .sin_addr.s_addr = inet_addr("127.0.0.1")
     };
 
-    while (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-        perror("connect");
-        sleep(1);
-    }
-
-    struct sockaddr_in client_addr;
-    socklen_t len = sizeof(client_addr);
-    getsockname(client_socket, (struct sockaddr*)&client_addr, &len);
-    printf("Адрес клиента: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-
-    pthread_t send_thread, recv_thread;
+    pthread_t connect_thread, send_thread, recv_thread;
+    pthread_create(&connect_thread, NULL, connect_to_server, NULL);
+    pthread_join(connect_thread, NULL);
     pthread_create(&send_thread, NULL, send_requests, NULL);
     pthread_create(&recv_thread, NULL, receive_responses, NULL);
 
